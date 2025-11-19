@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foosball Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Football Manager</h1>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Active Games:</span>
+          <span id="countPartiesActive" class="count">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total:</span>
+          <span id="countPartiesTotal" class="count">0</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="main-content">
+        <!-- Games section -->
+        <div class="parties-container">
+          <!-- Creation form -->
+          <section class="create-section">
+            <h2>Create a New Game</h2>
+            <form id="createForm">
+              <div class="form-group">
+                <label for="nomPartie">Game Name:</label>
+                <input 
+                  type="text" 
+                  id="nomPartie" 
+                  placeholder="e.g. Friendly Match" 
+                  required
+                  maxlength="100"
+                >
+              </div>
+              <button type="submit" class="btn btn-primary">Create</button>
+            </form>
+          </section>
+
+          <!-- Games list -->
+          <section class="parties-section">
+            <h2>Games</h2>
+            
+            <!-- Active games -->
+            <div class="parties-group">
+              <h3 class="group-title">Active</h3>
+              <div id="partiesActives" class="parties-list">
+                <p class="empty">No active games</p>
+              </div>
+            </div>
+
+            <!-- Finished games -->
+            <div class="parties-group">
+              <h3 class="group-title">Finished</h3>
+              <div id="partiesTerminees" class="parties-list">
+                <p class="empty">No finished games</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+   
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
