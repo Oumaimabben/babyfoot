@@ -9,7 +9,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>Football Manager</h1>
+      <h1> Football Manager</h1>
       <div class="stats">
         <div class="stat">
           <span class="label">Active Games:</span>
@@ -65,6 +65,37 @@
             </div>
           </section>
         </div>
+
+        <!-- Chat section -->
+        <aside class="chat-container">
+          <div class="chat-header">
+            <h2>Chat</h2>
+          </div>
+          
+          <div id="chatMessages" class="chat-messages">
+            <p class="loading">Loading messages...</p>
+          </div>
+
+          <form id="chatForm" class="chat-form">
+            <div class="chat-input-group">
+              <input 
+                type="text" 
+                id="userName" 
+                placeholder="Your name" 
+                maxlength="50"
+                value="Anonymous"
+              >
+              <input 
+                type="text" 
+                id="chatMessage" 
+                placeholder="Your message..." 
+                required
+                maxlength="500"
+              >
+              <button type="submit" class="btn btn-primary">Send</button>
+            </div>
+          </form>
+        </aside>
       </div>
     </main>
 
