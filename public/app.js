@@ -1,9 +1,13 @@
 let parties = [];
+let messages = [];
 let ws = null;
+let chatWs = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   loadParties();
+  loadMessages();
   connectWebSocket();
+  connectChatWebSocket();
   setupEventListeners();
 });
 
@@ -29,6 +33,27 @@ async function loadParties() {
   }
 }
 
+async function loadMessages() {
+  try {
+    const response = await fetch('/api/messages');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    if (Array.isArray(data)) {
+      messages = data;
+    } else {
+      console.error('Les données des messages ne sont pas un tableau:', data);
+      messages = [];
+    }
+    renderChatMessages();
+  } catch (error) {
+    console.error('Erreur lors du chargement des messages:', error);
+    messages = [];
+  }
+}
+
 // Connexion WebSocket pour les parties
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -51,10 +76,33 @@ function connectWebSocket() {
   };
 }
 
+function connectChatWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  chatWs = new WebSocket(`${protocol}//${window.location.host}`);
+
+  chatWs.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'chat_message_received') {
+      messages.push(data.message);
+      renderChatMessages();
+      scrollChatToBottom();
+    }
+  };
+
+  chatWs.onerror = (error) => {
+    console.error('Erreur WebSocket chat:', error);
+  };
+
+  chatWs.onclose = () => {
+    console.log('WebSocket chat fermé, reconnexion en 3s...');
+    setTimeout(() => connectChatWebSocket(), 3000);
+  };
+}
+
 // Gérer les messages WebSocket parties
 function handleWebSocketMessage(data) {
   if (!Array.isArray(parties)) {
-    console.error('⚠️ parties n\'est pas un tableau, réinitialisation:', parties);
+    console.error('parties n\'est pas un tableau, réinitialisation:', parties);
     parties = [];
   }
   
@@ -91,7 +139,6 @@ function handleWebSocketMessage(data) {
       console.log('Type de message WebSocket inconnu:', data.type);
   }
 }
-
 // Modifier updateUI pour inclure la validation
 function updateUI() {
   if (!validatePartiesArray()) {
@@ -143,7 +190,7 @@ function renderPartiesTerminees() {
 
 // Créer une carte de partie
 function createPartieCard(partie, isTerminee = false) {
-  const dateFormatted = new Date(partie.date_creation).toLocaleDateString('fr-FR', {
+  const dateFormatted = new Date(partie.date_creation).toLocaleDateString('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -151,9 +198,9 @@ function createPartieCard(partie, isTerminee = false) {
     minute: '2-digit',
   });
 
-  const cardClass = isTerminee ? 'partie-card termine' : 'partie-card';
-  const badgeClass = isTerminee ? 'badge-termine' : 'badge-en-cours';
-  const badgeText = isTerminee ? 'Terminée' : 'En cours';
+  const cardClass = isTerminee ? 'partie-card completed' : 'partie-card';
+  const badgeClass = isTerminee ? 'badge-completed' : 'badge-ongoing';
+  const badgeText = isTerminee ? 'Completed' : 'Ongoing';
 
   return `
     <div class="${cardClass}" data-id="${partie.id}">
@@ -165,7 +212,13 @@ function createPartieCard(partie, isTerminee = false) {
       ${!isTerminee ? `
         <div class="partie-scores">
           <div class="score-input">
-            <label>Équipe 1</label>
+            <label>Team 1</label>
+            <input 
+              type="text" 
+              class="team-name-equipe1" 
+              value="${partie.equipe1_nom || 'Team 1'}" 
+              placeholder="Team 1 name"
+            >
             <input 
               type="number" 
               class="score-equipe1" 
@@ -174,7 +227,13 @@ function createPartieCard(partie, isTerminee = false) {
             >
           </div>
           <div class="score-input">
-            <label>Équipe 2</label>
+            <label>Team 2</label>
+            <input 
+              type="text" 
+              class="team-name-equipe2" 
+              value="${partie.equipe2_nom || 'Team 2'}" 
+              placeholder="Team 2 name"
+            >
             <input 
               type="number" 
               class="score-equipe2" 
@@ -185,8 +244,8 @@ function createPartieCard(partie, isTerminee = false) {
         </div>
       ` : `
         <div class="partie-scores">
-          <div><strong>Équipe 1:</strong> ${partie.equipe1_score || 0}</div>
-          <div><strong>Équipe 2:</strong> ${partie.equipe2_score || 0}</div>
+          <div><strong>${partie.equipe1_nom || 'Team 1'}:</strong> ${partie.equipe1_score || 0}</div>
+          <div><strong>${partie.equipe2_nom || 'Team 2'}:</strong> ${partie.equipe2_score || 0}</div>
         </div>
       `}
 
@@ -194,16 +253,15 @@ function createPartieCard(partie, isTerminee = false) {
 
       <div class="partie-actions">
         ${!isTerminee ? `
-          <button class="btn btn-success btn-terminer">Terminer</button>
-          <button class="btn btn-danger btn-supprimer">Supprimer</button>
+          <button class="btn btn-success btn-terminer">End Game</button>
+          <button class="btn btn-danger btn-supprimer">Delete</button>
         ` : `
-          <button class="btn btn-danger btn-supprimer">Supprimer</button>
+          <button class="btn btn-danger btn-supprimer">Delete</button>
         `}
       </div>
     </div>
   `;
 }
-
 // Attacher les événements aux cartes
 function attachPartieEventListeners() {
   document.querySelectorAll('.partie-card').forEach(card => {
@@ -232,7 +290,6 @@ function attachPartieEventListeners() {
       });
     }
 
-    // Terminer la partie
     const btnTerminer = card.querySelector('.btn-terminer');
     if (btnTerminer) {
       btnTerminer.addEventListener('click', async () => {
@@ -244,7 +301,6 @@ function attachPartieEventListeners() {
       });
     }
 
-    // Supprimer la partie
     const btnSupprimer = card.querySelector('.btn-supprimer');
     if (btnSupprimer) {
       btnSupprimer.addEventListener('click', async () => {
@@ -258,6 +314,43 @@ function attachPartieEventListeners() {
       });
     }
   });
+}
+
+function renderChatMessages() {
+  const container = document.getElementById('chatMessages');
+
+  if (messages.length === 0) {
+    container.innerHTML = '<p class="loading">Aucun message pour le moment...</p>';
+    return;
+  }
+
+  container.innerHTML = messages.map(msg => {
+    const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return `
+      <div class="chat-message">
+        <span class="user-name">${escapeHtml(msg.user_name)}:</span>
+        <span>${escapeHtml(msg.contenu)}</span>
+        <span class="message-time">${time}</span>
+      </div>
+    `;
+  }).join('');
+
+  scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+  const container = document.getElementById('chatMessages');
+  container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Événements du formulaire
@@ -280,6 +373,30 @@ function setupEventListeners() {
       console.error('Erreur lors de la création:', error);
     }
   });
+
+  document.getElementById('chatForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const userName = document.getElementById('userName').value.trim() || 'Anonyme';
+    const message = document.getElementById('chatMessage').value.trim();
+
+    if (!message) return;
+
+    try {
+      if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+        chatWs.send(JSON.stringify({
+          type: 'chat_message',
+          user_name: userName,
+          contenu: message
+        }));
+      }
+
+      document.getElementById('chatMessage').value = '';
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du message:', error);
+    }
+  });
+  
 }
 
 // Fonction de vérification de l'intégrité des données

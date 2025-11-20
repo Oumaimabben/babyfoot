@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { setupPartiesHandler, broadcastPartiesUpdate } from './websockets/parties-handler.js';
+import { setupChatHandler } from './websockets/chat-handler.js';
 
 dotenv.config();
 
@@ -44,6 +45,15 @@ async function initDatabase() {
       );
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        contenu TEXT NOT NULL,
+        user_name VARCHAR(100) DEFAULT 'Anonyme',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('✓ Base de données initialisée');
   } catch (err) {
     console.error('Erreur lors de l\'initialisation de la BD:', err);
@@ -51,6 +61,7 @@ async function initDatabase() {
 }
 
 const { clients } = setupPartiesHandler(wss);
+setupChatHandler(wss, pool);
 
 // API Routes
 
@@ -63,6 +74,19 @@ app.get('/api/parties', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error('Erreur GET /api/parties:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// GET - Récupérer toutes les messages
+app.get('/api/messages', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, contenu, user_name, created_at FROM messages ORDER BY created_at ASC LIMIT 100'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erreur GET /api/messages:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -163,7 +187,7 @@ app.delete('/api/parties/:id', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 initDatabase().then(() => {
   server.listen(PORT, () => {
-    console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
+    console.log(` Serveur lancé sur http://localhost:${PORT}`);
   });
 }).catch((err) => {
   console.error('Erreur lors du démarrage:', err);
